@@ -79,6 +79,7 @@ public: static QrSegment makeNumeric(const char *digits);
 public: static QrSegment makeAlphanumeric(const char *text);
 
 
+
     /*
      * Returns a list of zero or more segments to represent the given text string. The result
      * may use various segment modes and switch modes to optimize the length of the bit stream.
