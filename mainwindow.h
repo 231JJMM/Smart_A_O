@@ -32,7 +32,8 @@
 #include <QtCharts/QValueAxis>
 #include <QPalette>
 #include <QSqlQuery>
-
+#include<QSerialPort>
+#include<QSerialPortInfo>
 
 #include <QMainWindow>
 
@@ -82,5 +83,7 @@ private:
     void clearInputFieldsDelete();
     void refreshTableView(); // Fonction pour rafraîchir la table
     void updateAlertsTab();  // <--- AJOUTER/VÉRIFIER CETTE LIGNE (pour l'onglet Alerte)
+    void envoyerSeuilsAuto();
+    QSerialPort *serial;
 };
 #endif // MAINWINDOW_H

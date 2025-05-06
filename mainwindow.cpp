@@ -44,8 +44,10 @@
 #include <QtCharts/QPieSeries>
 #include <QtCharts/QChart>
 #include <QtCharts/QLegend>
+#include <qserialport.h>
+#include <QSerialPortInfo>
 
-
+QSerialPort *serial;
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -271,6 +273,22 @@ MainWindow::MainWindow(QWidget *parent)
     ui->qrCodeLabel_2->setAlignment(Qt::AlignCenter);
     ui->qrCodeLabel_2->setText(tr("Sélectionnez une ressource"));
     ui->qrCodeLabel_2->setStyleSheet("background-color: lightgray; border: 1px solid gray; padding: 5px;");
+   //Arduino
+
+        serial = new QSerialPort(this);
+        serial->setPortName("COM3"); // ⚠️ Mets le bon port ici
+        serial->setBaudRate(QSerialPort::Baud9600);
+        serial->setDataBits(QSerialPort::Data8);
+        serial->setParity(QSerialPort::NoParity);
+        serial->setStopBits(QSerialPort::OneStop);
+        serial->setFlowControl(QSerialPort::NoFlowControl);
+
+        if (!serial->open(QIODevice::WriteOnly)) {
+            QMessageBox::critical(this, "Erreur Port Série", "Impossible d'ouvrir le port série !");
+        }
+        else{
+            qDebug() << "Connexion Arduino réussie";
+        }
 }
 
 MainWindow::~MainWindow()
@@ -711,5 +729,42 @@ void MainWindow::on_pushButton_5_clicked()
     }
 }
 
-// --- SLOT VIDE (Pour le bouton QR Code si besoin) ---
-// void MainWindow::on_pushButton_28_clicked() { /* Code à ajouter ici si ce bouton a une action */ }
+//Arduino
+void MainWindow::envoyerSeuilsAuto()
+{
+    float minVal = 0, maxVal = 0;
+
+    // Étape 1 : Lire les seuils depuis la base de données (table SEUILS)
+    QSqlQuery query;
+    query.prepare("SELECT TEMPERATUREMIN, TEMPERATUREMAX FROM RESS WHERE ID_P = :id");
+    query.bindValue(":id", 1); // Modifier ici si tu veux un autre ID_P que 1
+
+    if (query.exec() && query.next()) {
+        minVal = query.value(0).toFloat();
+        maxVal = query.value(1).toFloat();
+        qDebug() << "Seuils récupérés : Temp Min =" << minVal << ", Temp Max =" << maxVal;
+    } else {
+        QMessageBox::warning(this, "Erreur", "Impossible de lire les seuils depuis la base de données SEUILS.");
+        return;
+    }
+
+    // Étape 2 : Vérifier que min < max
+    if (minVal >= maxVal) {
+        QMessageBox::warning(this, "Erreur", "Le seuil minimum doit être inférieur au seuil maximum.");
+        return;
+    }
+
+    // Étape 3 : Envoyer vers Arduino
+    if (serial && serial->isOpen()) {
+        QString seuils = QString("%1,%2\n")
+        .arg(minVal, 0, 'f', 1)  // Formate minVal avec 1 chiffre après la virgule
+            .arg(maxVal, 0, 'f', 1); // Formate maxVal avec 1 chiffre après la virgule
+
+        serial->write(seuils.toUtf8());  // Envoie la donnée à Arduino
+        qDebug() << "Seuils envoyés à Arduino : " << seuils;
+
+        QMessageBox::information(this, "Seuils envoyés", "Les seuils ont été envoyés à l'Arduino.");
+    } else {
+        QMessageBox::critical(this, "Erreur de connexion", "La connexion série n'est pas ouverte.");
+    }
+}
